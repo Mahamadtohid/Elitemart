@@ -1,0 +1,307 @@
+from django.shortcuts import render , get_object_or_404 , redirect
+from django.http import HttpResponse , JsonResponse
+from core.models import *
+from django.contrib.postgres.search import TrigramSimilarity
+from taggit.models import Tag
+from django.db.models import Count , Aggregate , Avg
+from core.forms import *
+from django.template.loader import render_to_string
+from django.contrib import messages
+
+from django.urls import reverse
+from django.conf import settings
+from django.views.decorators.csrf import csrf_exempt
+from paypal.standard.forms import PayPalPaymentsForm
+
+
+def index(request):
+    products = Product.objects.filter(product_status="published" , featured=True).order_by("-id")
+    
+    
+    context = {
+        "products" : products,
+        
+    }
+    return render(request, "core/index.html" , context)
+
+
+def products_list_view(request):
+    products = Product.objects.filter(product_status="published" , featured=True).order_by("-id")
+    
+    
+    context = {
+        "products" : products,
+        
+    }
+    return render(request, "core/products-list.html" , context)
+
+def category_list_view(request):
+    
+    categories = Category.objects.all()
+    # categories = Category.objects.all().annotate(prosuct_count = Count("products"))
+    
+    context = {
+        
+        "categories" : categories
+        
+    }
+    
+    return render(request, "core/category-list.html" , context)
+
+def category_products_list_view(request, categoryid):
+    category = Category.objects.get(categoryid = categoryid)
+    products = Product.objects.filter(category = category , product_status="published")
+    
+    
+    context = {
+        "category" : category,
+        "products" :products
+    }
+    
+    return render(request , "core/category-products-list.html" , context)
+
+def vendor_list_view(request):
+    vendors = Vendor.objects.all()
+    context = {
+        "vendors" : vendors
+    }
+    return render(request , "core/vendor-list.html" , context)
+
+
+def vendor_details(request , vendorid):
+    vendor = Vendor.objects.get(vendorid=vendorid)
+    products = Product.objects.filter(vendor = vendor , product_status="published")
+    context = {
+        "vendor" : vendor,
+        "products" : products
+    }
+    return render(request , "core/vendor-details.html" , context)
+
+def product_detail_view(request , productid):
+    product = Product.objects.get(productid = productid)
+    reviews = ProductReview.objects.filter(product = product).order_by("-date")
+    average_rating = ProductReview.objects.filter(product = product).aggregate(rating = Avg('rating'))
+    product_images = product.product_images.all()
+    
+    products = Product.objects.filter(category = product.category)
+    # .exclude(productid = productid)
+    make_review = True
+    
+    if request.user.is_authenticated:
+        user_review_count =ProductReview.objects.filter(user=request.user , product=product).count()
+        
+        if user_review_count > 0:
+            make_review = False
+    
+    # Product review Form
+    review_form = productReviewForm()
+    context = {
+        "product" : product,
+        "review_form":review_form,
+        'make_review':make_review,
+        "product_images":product_images,
+        "products" : products,
+        "average_rating":average_rating,
+        "reviews":reviews,
+    }
+    
+    return render(request , "core/product-detail.html" , context)
+
+
+def tag_list(request , tag_slug = None):
+    products = Product.objects.filter(product_status="published").order_by("-id")
+    tag = None
+    
+    if tag_slug :
+        tag = get_object_or_404(Tag , slug=tag_slug)
+        products = products.filter(tag__in=[tag])  
+    
+    context = {
+        "products":products,
+        "tag":tag
+    }
+    return render(request , "core/tag.html" , context)
+
+
+def ajax_add_review(request , productid):
+    product = Product.objects.get(productid = productid)
+    user = request.user
+    
+    review = ProductReview.objects.create(
+        user = user,
+        product = product,
+        review = request.POST['review'],
+        rating = request.POST['rating'],
+    )
+    
+    context = {
+        'user':user.username,
+        'review':request.POST['review'],
+        'rating' : request.POST['rating'],
+    }
+    
+    average_review = ProductReview.objects.filter(product = product).aggregate(rating =Avg('rating'))
+    
+    return JsonResponse(
+        {
+        'bool': True,
+        'context':context,
+        'average_review':average_review,
+        }
+    )
+   
+   
+def search_view(request):
+    query = request.GET.get("query")
+    
+    products = Product.objects.filter(title__icontains="Shoe").order_by("-date")
+    # products = Product.objects.annotate(
+    #         similarity=TrigramSimilarity('title', query)
+    #     ).filter(similarity__gt=0.3).order_by('-similarity')
+
+    
+    context = {
+        "products" : products,
+        "query" : query
+    } 
+    print(Product.objects.all())  # Check if there are any products at all
+
+    print(Product.objects.filter(title__icontains="Shoe"))
+    
+    return render(request , "core/search.html" , context)
+
+
+def filter_product(request):
+    categories = request.GET.getlist("category[]", [])
+    vendors = request.GET.getlist("vendor[]", [])
+    min_price = request.GET['min_price']
+    max_price = request.GET['max_price']
+    
+    
+
+    # Fetch only published products
+    products = Product.objects.filter(product_status="published").order_by("-id")
+    products = products.filter(price__gte=min_price)
+    products = products.filter(price__lte=max_price)
+
+    # Apply category filtering if categories are provided
+    if categories:
+        products = products.filter(category__id__in=categories)
+
+    # Apply vendor filtering if vendors are provided
+    if vendors:
+        products = products.filter(vendor__id__in=vendors)
+
+    # Render filtered products into an HTML template
+    data = render_to_string("core/async/product-list.html", {"products": products}, request=request)
+
+    return JsonResponse({"data": data})
+
+
+def add_to_cart(request):
+    cart_products = {}
+    cart_products[str(request.GET['id'])] = {
+        'title': request.GET['title'],
+        'quantity' : request.GET['quantity'],
+        'price' : request.GET['price'],
+        'image' : request.GET['image'],
+        'pid' : request.GET['pid']
+        
+    }
+    
+    if 'cart_data_obj' in request.session:
+        if str(request.GET['id']) in request.session['cart_data_obj']:
+            cart_data = request.session['cart_data_obj']
+            cart_data[str(request.GET['id'])] ['quantity'] = int(cart_products[str(request.GET['id'])]['quantity'])
+            cart_data.update(cart_data)
+            request.session['cart_data_obj'] = cart_data
+            
+        else:
+            
+            cart_data = request.session['cart_data_obj']
+            cart_data.update(cart_products)
+            request.session['cart_data_obj']= cart_data
+            
+    else:
+        request.session['cart_data_obj'] = cart_products
+        
+    return JsonResponse({"data":request.session['cart_data_obj'] , "totalcartitems": len(request.session['cart_data_obj'])})
+
+ 
+ 
+def cart_view(request):
+    cart_total_amount = 0
+    if 'cart_data_obj' in request.session:
+        for product_id , item in request.session['cart_data_obj'].items():
+            cart_total_amount += float(item['price']) * int(item['quantity'])
+        return render(request , 'core/cart.html' , {"cart_data":request.session['cart_data_obj'] , "totalcartitems": len(request.session['cart_data_obj']) , 'cart_total_amount':cart_total_amount})
+    else:
+        messages.warning(request ,"Your cart is Empty")
+        return redirect("core:index")
+    
+def delete_item_from_cart(request):
+    product_id = str(request.GET['id'])
+    if 'cart_data_obj' in request.session:
+        if product_id in request.session['cart_data_obj']:
+            cart_data = request.session['cart_data_obj']
+            del request.session['cart_data_obj'][product_id]
+            request.session['cart_data_obj'] = cart_data
+    cart_total_amount = 0       
+    if 'cart_data_obj' in request.session:
+        for product_id , item in request.session['cart_data_obj'].items():
+            cart_total_amount += float(item['price']) * int(item['quantity'])
+            
+    context = render_to_string("core/async/cart-list.html" , ({"cart_data":request.session['cart_data_obj'] , "totalcartitems": len(request.session['cart_data_obj']) , 'cart_total_amount':cart_total_amount}))
+    
+    return JsonResponse({"data":context , "totalcartitems": len(request.session['cart_data_obj']) , 'cart_total_amount':cart_total_amount})
+
+
+def update_cart(request):
+    product_id = str(request.GET['id'])
+    product_quantity = request.GET['quantity']
+    if 'cart_data_obj' in request.session:
+        if product_id in request.session['cart_data_obj']:
+            cart_data = request.session['cart_data_obj']
+            # del request.session['cart_data_obj'][product_id]
+            cart_data[str(request.GET['id'])] ['quantity'] = product_quantity
+            request.session['cart_data_obj'] = cart_data
+    cart_total_amount = 0       
+    if 'cart_data_obj' in request.session:
+        for product_id , item in request.session['cart_data_obj'].items():
+            cart_total_amount += float(item['price']) * int(item['quantity'])
+            
+    context = render_to_string("core/async/cart-list.html" , ({"cart_data":request.session['cart_data_obj'] , "totalcartitems": len(request.session['cart_data_obj']) , 'cart_total_amount':cart_total_amount}))
+    
+    return JsonResponse({"data":context , "totalcartitems": len(request.session['cart_data_obj']) , 'cart_total_amount':cart_total_amount})
+
+
+def checkout_view(request):
+    host = request.get_host()
+    paypal_dict = {
+        'business':settings.PAYPAL_RECIEVER_EMAIL,
+        'email':'200',
+        'item_name':"prder-item-No.-2",
+        'invoice':"INVOICE_Num-2",
+        'currency-code':"INR",
+        'notify_url' :"http://()()".format(host , reverse("core:paypal-ipn")),
+        'return_url':"http://()()".format(host , reverse("core:payment:completed")),
+        'cancel_url':"http://()()".format(host , reverse("core:payment-failed"))
+        
+        
+    }
+    
+    paypal_payment_button = PayPalPaymentsForm(initial=paypal_dict)
+    cart_total_amount = 0       
+    if 'cart_data_obj' in request.session:
+        for product_id , item in request.session['cart_data_obj'].items():
+            cart_total_amount += float(item['price']) * int(item['quantity'])
+        # return render(request , "core/checkout.html")
+    
+    return render(request , 'core/checkout.html' , {"cart_data":request.session['cart_data_obj'] , "totalcartitems": len(request.session['cart_data_obj']) , 'cart_total_amount':cart_total_amount , 'paypal_payment_button':paypal_payment_button})
+
+
+def payment_complete_view(request):
+    return render(request , 'core/payment-complete.html')
+
+def payment_failed_view(request):
+    return render(request , 'core/payment-failed.html')
