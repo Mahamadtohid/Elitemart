@@ -16,6 +16,7 @@ class VendorAdmin(admin.ModelAdmin):
     list_display =['title' , 'vendor_image' ]
     
 class CartsOrderAdmin(admin.ModelAdmin):
+    list_editable = ['paid_track' , 'product_status']
     list_display =['user' , 'price' , 'paid_track' ,'date' , 'product_status']
     
 class CartsOrderItemAdmin(admin.ModelAdmin):

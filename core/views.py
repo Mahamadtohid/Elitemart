@@ -11,7 +11,9 @@ from django.contrib import messages
 from django.urls import reverse
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.decorators import login_required
 from paypal.standard.forms import PayPalPaymentsForm
+from datetime import date
 
 
 def index(request):
@@ -274,18 +276,56 @@ def update_cart(request):
     
     return JsonResponse({"data":context , "totalcartitems": len(request.session['cart_data_obj']) , 'cart_total_amount':cart_total_amount})
 
+def convert_inr_to_usd(cart_total_amount):
+    exchange_rate = 86  # Fixed exchange rate (1 USD = 82 INR)
+    amount_in_usd = cart_total_amount / exchange_rate  # Convert INR to USD
+    return '%.2f' % amount_in_usd
 
+@login_required
 def checkout_view(request):
+    cart_total_amount = 0    
+    total_amount = 0   
+    # Checking cart_data_obj still exist in session or not
+    if 'cart_data_obj' in request.session:
+        #Getting total Ammount for the Paypal
+        for product_id , item in request.session['cart_data_obj'].items():
+            total_amount += float(item['price']) * int(item['quantity'])
+        
+        #creating order Objects
+        order =CartOrder.objects.create(
+            user = request.user,
+            price = total_amount,
+            
+        )
+        
+        #Getting total Ammount for the cart
+        for product_id , item in request.session['cart_data_obj'].items():
+            cart_total_amount += float(item['price']) * int(item['quantity'])
+            
+            cart_order_item = CartOrderItems.objects.create(
+                order = order,
+                invoice_no = "INVOICE_NO-"+str(order.id),
+                item = item['title'],
+                image = item['image'],
+                quantity = item['quantity'],
+                price = item['price'],
+                total = int(item['quantity']) * float(item['price'])
+                
+            )
+        amount_in_usd = convert_inr_to_usd(cart_total_amount)
+
+            
+    
     host = request.get_host()
     paypal_dict = {
-        'business':settings.PAYPAL_RECIEVER_EMAIL,
-        'email':'200',
-        'item_name':"prder-item-No.-2",
-        'invoice':"INVOICE_Num-2",
-        'currency-code':"INR",
-        'notify_url' :"http://()()".format(host , reverse("core:paypal-ipn")),
-        'return_url':"http://()()".format(host , reverse("core:payment:completed")),
-        'cancel_url':"http://()()".format(host , reverse("core:payment-failed"))
+        'business':settings.PAYPAL_RECEIVER_EMAIL,
+        'amount' : amount_in_usd,
+        'item_name':"Order-Item-No-"+str(order.id),
+        'invoice':"INVOICE_Num-2"+str(order.id),
+        'currency_code':"USD",
+        'notify_url': f"http://{host}{reverse('core:paypal-ipn')}",
+        'return_url': f"http://{host}{reverse('core:payment-completed')}",
+        'cancel_url': f"http://{host}{reverse('core:payment-failed')}",
         
         
     }
@@ -297,11 +337,25 @@ def checkout_view(request):
             cart_total_amount += float(item['price']) * int(item['quantity'])
         # return render(request , "core/checkout.html")
     
-    return render(request , 'core/checkout.html' , {"cart_data":request.session['cart_data_obj'] , "totalcartitems": len(request.session['cart_data_obj']) , 'cart_total_amount':cart_total_amount , 'paypal_payment_button':paypal_payment_button})
+    return render(request , 'core/checkout.html' , {"cart_data":request.session['cart_data_obj'] ,"product_id":product_id,"totalcartitems": len(request.session['cart_data_obj']) ,'cart_total_amount':cart_total_amount , 'paypal_payment_button':paypal_payment_button})
 
-
+@login_required
 def payment_complete_view(request):
-    return render(request , 'core/payment-complete.html')
+    cart_total_amount = 0 
+    today = date.today()      
+    if 'cart_data_obj' in request.session:
+        for product_id , item in request.session['cart_data_obj'].items():
+            cart_total_amount += float(item['price']) * int(item['quantity'])
+    # return render(request , 'core/payment-complete.html')
+        
+    return render(request , 'core/payment-complete.html' , {"cart_data":request.session['cart_data_obj'] , "totalcartitems": len(request.session['cart_data_obj']) , 'cart_total_amount':cart_total_amount , 'today':today})
 
+    
+    
+@login_required
 def payment_failed_view(request):
     return render(request , 'core/payment-failed.html')
+
+
+def customer_dashboard(request):
+    return render(request , 'core/customer-dashboard.html')

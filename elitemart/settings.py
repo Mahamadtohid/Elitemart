@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "ckeditor",
     #Payment Integration
     "paypal.standard.ipn",
+    # "paypal.standard.pdt",
     
     # Custom Apps
     "core",
@@ -152,6 +153,8 @@ JAZZMIN_SETTINGS = {
     'site_copyright': 'Copyright@123',
 }
 
+LOGIN_URL = 'userauth:sign-in'
+
 AUTH_USER_MODEL = 'userauth.User'
 CKEDITOR_UPLOAD_PATH = "uploads/"
 
@@ -171,5 +174,6 @@ CKEDITOR_CONFIGS ={
     }
 }
 
-PAYPAL_RECIEVER_EMAIL = 'sb-c5xgx6555500@business.example.com'
+PAYPAL_RECEIVER_EMAIL = 'sb-msvwv14721642@business.example.com'
 PAYPAL_TEST = True
+# PAYPAL_CURRENCY_CODE = 'INR'
