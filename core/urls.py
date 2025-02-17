@@ -44,9 +44,14 @@ urlpatterns = [
     #Payment Successful
     path("payment-completed/" , payment_complete_view, name="payment-completed"),
     #payment failed
+    path("payment-failed/" , payment_failed_view, name="payment-failed"),
     
     
     path("dashboard/" , customer_dashboard , name="dashboard"),
     #Customers dashboards
+    
+    path("dashboard/order/<id>" , order_detail , name="order-detail"),
+    
+    path('make-default-address/' ,make_address_default , name="make-default-address")
 ]
     

@@ -331,13 +331,20 @@ def checkout_view(request):
     }
     
     paypal_payment_button = PayPalPaymentsForm(initial=paypal_dict)
-    cart_total_amount = 0       
+    cart_total_amount = 0      
+    # active_address = Address.objects.get(user=request.user, status=True) 
     if 'cart_data_obj' in request.session:
         for product_id , item in request.session['cart_data_obj'].items():
             cart_total_amount += float(item['price']) * int(item['quantity'])
         # return render(request , "core/checkout.html")
+        
+    try:
+        active_address = Address.objects.get(user=request.user, status=True)
+    except Address.DoesNotExist:
+        messages.warning(request , "Multiple addresses , Only one shiuld be activated")  
+        active_address = None
     
-    return render(request , 'core/checkout.html' , {"cart_data":request.session['cart_data_obj'] ,"product_id":product_id,"totalcartitems": len(request.session['cart_data_obj']) ,'cart_total_amount':cart_total_amount , 'paypal_payment_button':paypal_payment_button})
+    return render(request , 'core/checkout.html' , {"cart_data":request.session['cart_data_obj'] ,"product_id":product_id,"totalcartitems": len(request.session['cart_data_obj']) ,'cart_total_amount':cart_total_amount , 'paypal_payment_button':paypal_payment_button ,"active_address":active_address})
 
 @login_required
 def payment_complete_view(request):
@@ -356,6 +363,46 @@ def payment_complete_view(request):
 def payment_failed_view(request):
     return render(request , 'core/payment-failed.html')
 
-
+@login_required
 def customer_dashboard(request):
-    return render(request , 'core/customer-dashboard.html')
+    orders = CartOrder.objects.filter(user = request.user).order_by("-id")
+    address = Address.objects.filter(user = request.user)
+    for order in orders :
+        amount_in_usd = convert_inr_to_usd(order.price)
+    if request.method == "POST":
+        address = request.POST.get("address")
+        mobile = request.POST.get("mobile")
+        
+        new_address = Address.objects.create(
+            user = request.user,
+            address = address,
+            # mobile = mobile
+        )
+        messages.success(request, f"Hey {request.user} Address Added Successfully")
+        return redirect("core:dashboard")
+    
+    context = {
+        "orders":orders,
+        "amount_in_usd":amount_in_usd,
+        'address':address,
+    }
+    return render(request , 'core/customer-dashboard.html' , context)
+
+def order_detail(request , id):
+    order=CartOrder.objects.get(user = request.user , id = id)
+    products = CartOrderItems.objects.filter(order = order)   
+    for product in products :
+        amount_in_usd = convert_inr_to_usd(order.price)
+    context = {
+        "products":products,
+        "amount_in_usd":amount_in_usd,
+    }  
+    
+    return render(request , 'core/order-detail.html' , context)
+
+
+def make_address_default(request):
+    id = request.GET['id']
+    Address.objects.update(status=False)
+    Address.objects.filter(id = id).update(status=True)
+    return JsonResponse({"boolean":True})
