@@ -52,6 +52,12 @@ urlpatterns = [
     
     path("dashboard/order/<id>" , order_detail , name="order-detail"),
     
-    path('make-default-address/' ,make_address_default , name="make-default-address")
+    path('make-default-address/' ,make_address_default , name="make-default-address"),
+    
+    #Add to whishlist
+    path('add-to-wishlist/' ,add_to_whishlist , name="wishlist"),
+    
+    #Wishlist page
+    path("wishlist/" , wishlist_view , name="wishlistitems"),
 ]
     

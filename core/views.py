@@ -406,3 +406,40 @@ def make_address_default(request):
     Address.objects.update(status=False)
     Address.objects.filter(id = id).update(status=True)
     return JsonResponse({"boolean":True})
+@login_required
+def add_to_whishlist(request):
+    product_id = request.GET['id']
+    product = Product.objects.get(id = product_id)
+    
+    context = {
+        
+    }
+    whishlist_count = Whishlist.objects.filter(user = request.user , product = product).count()
+    
+    if whishlist_count > 0:
+        context ={
+            'bool':True
+        }
+    else:
+        new_whishlist = Whishlist.objects.create(
+            user = request.user,
+            product=product,
+        )
+        context = {
+            "bool":True
+        }
+    
+    return JsonResponse(context)
+    # return render(request , 'core/add-to-whishlist.html' , context)
+
+@login_required 
+def wishlist_view(request):
+    # try:
+    wishlist = Whishlist.objects.all()
+    # except :
+    #     wishlist = None
+    context = {
+        "wishlist":wishlist
+    }
+    
+    return render(request , "core/wishlist.html" , context)
