@@ -1,6 +1,7 @@
 from core.models import *
 from django.db.models import Min , Max 
 from django.contrib import messages
+
 def default(request):
     
     categories =Category.objects.all()

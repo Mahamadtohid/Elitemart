@@ -59,5 +59,7 @@ urlpatterns = [
     
     #Wishlist page
     path("wishlist/" , wishlist_view , name="wishlistitems"),
+    
+    path("remove-from-wishlist/" , remove_wishliat , name="remove-from-wishlist"),
 ]
     

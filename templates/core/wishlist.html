@@ -2,7 +2,7 @@
 {% load static %}
 {% block content %}
 
-<main class="main">
+<main class="main" id="wishlist-list">
     <div class="page-header breadcrumb-wrap">
         <div class="container">
             <div class="breadcrumb">
@@ -67,7 +67,7 @@
                                     <button class="btn btn-sm  add-to-cart-btn" data-index="{{w.product.id}}"  >Add to cart</button>
                                 </td>
                                 <td class="action text-center" data-title="Remove">
-                                    <a href="#" class="text-body"><i class="fi-rs-trash"></i></a>
+                                    <button style="border:none ; background:none" class="text-body delete-wishlist-product" data-wishlist-product="{{ w.id}}"><i class="fi-rs-trash"></i></button>
                                 </td>
                             </tr>
                             {% empty %}

@@ -303,6 +303,34 @@ $(document).ready( function(){
         
 })
 
+// Remove From Wishlist
+
+$(document).on("click" , ".delete-wishlist-product" , function(){
+    let wishlist_id = $(this).attr("data-wishlist-product")
+    let this_val = $(this)
+
+    console.log("Wishlist_id" , wishlist_id)
+    $.ajax({
+        url:"/remove-from-wishlist",
+        data:{
+            "id":wishlist_id,
+
+        },
+        dataType:"json",
+        beforeSend:function(){
+            console.log("Deleting From Wishlist");
+            
+
+        },
+
+        success:function(response){
+            $("#wishlist-list").html(response.data)
+            
+        }
+        
+    })
+})
+
 })
 
 

@@ -14,6 +14,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from paypal.standard.forms import PayPalPaymentsForm
 from datetime import date
+from userauth.models import Profile
+from django.core import serializers
 
 
 def index(request):
@@ -367,6 +369,7 @@ def payment_failed_view(request):
 def customer_dashboard(request):
     orders = CartOrder.objects.filter(user = request.user).order_by("-id")
     address = Address.objects.filter(user = request.user)
+    profile = Profile.objects.get(user = request.user)
     for order in orders :
         amount_in_usd = convert_inr_to_usd(order.price)
     if request.method == "POST":
@@ -382,6 +385,7 @@ def customer_dashboard(request):
         return redirect("core:dashboard")
     
     context = {
+        "profile":profile,
         "orders":orders,
         "amount_in_usd":amount_in_usd,
         'address':address,
@@ -443,3 +447,19 @@ def wishlist_view(request):
     }
     
     return render(request , "core/wishlist.html" , context)
+
+def remove_wishliat(request):
+    productid = request.GET['id']
+    wishlist = Whishlist.objects.filter(user = request.user)
+    
+    product = Whishlist.objects.get(id = productid)
+    product.delete()
+    
+    context={
+        "bool":True,
+        "wishlist":wishlist
+    }
+    wishlist_json = serializers.serialize("json" , wishlist)
+    
+    data = render_to_string("core/async/wishlist-list.html" , context)
+    return JsonResponse({"data":data , "wishlist":wishlist_json})
