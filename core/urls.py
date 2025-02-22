@@ -52,6 +52,8 @@ urlpatterns = [
     
     path("dashboard/order/<id>" , order_detail , name="order-detail"),
     
+    path('dashboard/', include('userauth.urls')),
+    
     path('make-default-address/' ,make_address_default , name="make-default-address"),
     
     #Add to whishlist
@@ -61,5 +63,10 @@ urlpatterns = [
     path("wishlist/" , wishlist_view , name="wishlistitems"),
     
     path("remove-from-wishlist/" , remove_wishliat , name="remove-from-wishlist"),
+    
+    #Contact Us
+    path("contactus/" , contactus , name="contactus"),
+    
+    # path("api/create_checkout_session/<oid>" , create_checkout_session , name="create-checkout-session"),
 ]
     

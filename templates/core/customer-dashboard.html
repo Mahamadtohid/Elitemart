@@ -50,8 +50,13 @@
                                                 <h3 class="mb-0">My Profile</h3>
                                             </div>
                                             <div class="card-body mb-2" style="display:flex; align-items:center ; gap:10px" >
-                                                <div>                                                
+                                                <div>  
+                                                    {% if profile.profileimage.url %}                                              
                                                     <span><img src="{{ profile.profileimage.url }}"  style="width:160px; object-fit:cover ; border-radius:50%; height:160px"alt=""></span>
+                                                    {% else %}
+                                                    <span><img src="https://imgs.search.brave.com/n24eamZZyFy2YdTSYarsWPVTDFMgxdJj-gUWTIGoYqg/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly90NC5m/dGNkbi5uZXQvanBn/LzA1Lzg5LzkzLzI3/LzM2MF9GXzU4OTkz/Mjc4Ml92UUFFQVpo/SG5xMVFDR3U1aWt3/cllhUUQwTW11cm0w/Ti5qcGc"  style="width:160px; object-fit:cover ; border-radius:50%; height:160px"alt=""></span>
+                                                    {% endif %}
+
                                                 </div>                                                
                                                 <div class="mb-2">
                                                 <span><input type="text" value="Name - {{ profile.full_name }}"></span>
@@ -68,7 +73,7 @@
                                                 </div>
                                                 {% endif %}
                                                 <div class="p-3 border rounded">
-                                                    <button class=" btn">Edit Profile</button>
+                                                    <a class=" btn" href="{% url 'userauth:profile-update' %}">Edit Profile</a>
                                                 </div>
                                                 </div>
                                             </div>
@@ -84,6 +89,9 @@
                                                     From your account dashboard. you can easily check &amp; view your <a href="#">recent orders</a>,<br />
                                                     manage your <a href="#">shipping and billing addresses</a> and <a href="#">edit your password and account details.</a>
                                                 </p>
+                                            </div>
+                                            <div class="mt-4">
+                                                <canvas style = "width:30px; height:30px" id="myChart"></canvas>
                                             </div>
                                         </div>
                                     </div>
@@ -259,4 +267,36 @@
             </div>
         </div>
     </main>
+    <script>
+
+        // Convert Django variables into JavaScript arrays
+// const labels = {{ month|safe }};  // Ensure it's an array
+// const totalOrders = {{ total_order|safe }};  // Ensure it's an array
+
+const ctx = document.getElementById('myChart').getContext('2d');
+
+new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: labels,  // Correctly set labels as an array
+        datasets: [{
+            label: 'Analysis of Orders',
+            data: totalOrders,  // Use the correct variable
+            backgroundColor: 'rgb(59, 183, 126)',
+            borderColor: 'rgb(59, 183, 126)',
+            borderWidth: 2,
+            fill: false
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+    </script>      
 {% endblock content %}

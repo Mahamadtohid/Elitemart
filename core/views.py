@@ -16,6 +16,8 @@ from paypal.standard.forms import PayPalPaymentsForm
 from datetime import date
 from userauth.models import Profile
 from django.core import serializers
+import calendar
+from django.db.models.functions import ExtractMonth
 
 
 def index(request):
@@ -283,10 +285,60 @@ def convert_inr_to_usd(cart_total_amount):
     amount_in_usd = cart_total_amount / exchange_rate  # Convert INR to USD
     return '%.2f' % amount_in_usd
 
+
+# import stripe
+# def create_checkout_session(request , oid):
+    order = CartOrder.objects.get(oid = oid)
+    stripe.api_key = settings.STRIPE_SECRETE_KEY
+    
+    checkout_session = stripe.checkout.Session.create(
+        customer_email = order.email,
+        payment_method_type = ['card'],
+        line_items = [
+            {
+                'price_data':{
+                    'currency': 'INR',
+                    'product_data':{
+                        'name': order.full_name,
+                        
+                    },
+                    'unit_amount': int(order.price * 1000)
+                },
+                'quantity': 1
+            }
+        ],
+        mode = 'payment',
+        success_url = request.build_absolute_uri(reverse('core:payment-completed' , args=[order.oid])) + "?session_id={CHECKOUT_SESSION_ID}",
+        cancel_url = request.build_absolute_uri(reverse('core:payment-failed'))
+    )
+        
+    order.paid_status = False
+    order.stripe_payment_intent = checkout_session['id']
+    order.save()
+    
+    
 @login_required
 def checkout_view(request):
     cart_total_amount = 0    
     total_amount = 0   
+    
+    # if request.method == "POST":
+    #     code = request.POST.get("code")
+    #     coupon = Coupon.objects.filter(code = code , active=True).first()
+    #     if coupon in order.coupons.all():
+    #         messages.warning(request,"Coupon Already Activated..")
+    #         return redirect("core:checkout" , order.oid)
+    #     else:
+    #         discount = order.price * coupon.discount / 100
+            # order.coupons.add(coupon)
+            # order.price -= discount
+            # order.save += discount
+            #order.save()
+    #         messages.success(request,"Coupon Activated..")
+    #         return redirect("core:checkout" , order.oid)
+    # else:
+    #     messages.error(request,"Coupon Does Not Exist..")
+    #     return redirect("core:checkout" , order.oid)
     # Checking cart_data_obj still exist in session or not
     if 'cart_data_obj' in request.session:
         #Getting total Ammount for the Paypal
@@ -370,6 +422,13 @@ def customer_dashboard(request):
     orders = CartOrder.objects.filter(user = request.user).order_by("-id")
     address = Address.objects.filter(user = request.user)
     profile = Profile.objects.get(user = request.user)
+    order_list = CartOrder.objects.annotate(month = ExtractMonth("date")).values("month").annotate(count = Count("id")).values("month" , "count")
+    month = []
+    total_order = []
+    
+    for order in order_list:
+        month.append(calendar.month_name[order['month']])
+        total_order.append(order['count'])
     for order in orders :
         amount_in_usd = convert_inr_to_usd(order.price)
     if request.method == "POST":
@@ -387,6 +446,9 @@ def customer_dashboard(request):
     context = {
         "profile":profile,
         "orders":orders,
+        "order_list":order_list,
+        "month":month,
+        "total_order":total_order,
         "amount_in_usd":amount_in_usd,
         'address':address,
     }
@@ -463,3 +525,18 @@ def remove_wishliat(request):
     
     data = render_to_string("core/async/wishlist-list.html" , context)
     return JsonResponse({"data":data , "wishlist":wishlist_json})
+
+
+def product(request):
+    all_products = Product.objects.all()
+    all_categories = Category.objects.all()
+    
+    context = {
+        "all_products":all_products,
+        "all_categories":all_categories
+    }
+    
+    return render(request , "product.html" , context)
+
+def contactus(request):
+    return render(request , "core/contactus.html")

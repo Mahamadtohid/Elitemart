@@ -32,6 +32,9 @@ class AddressAdmin(admin.ModelAdmin):
     list_editable = ['status' , 'address']
     list_display =['user' , 'address' , 'status']
     
+# class CouponAdmin(admin.ModelAdmin):
+#     list_display =['code' , 'discount' , 'active']
+    
 admin.site.register(Product , ProductAdmin)
 admin.site.register(Category , CategoryAdmin)
 admin.site.register(Vendor , VendorAdmin)
@@ -40,3 +43,4 @@ admin.site.register(CartOrderItems, CartsOrderItemAdmin)
 admin.site.register(ProductReview , ProductReviewAdmin)
 admin.site.register(Whishlist , WhishlistAdmin)
 admin.site.register(Address , AddressAdmin)
+admin.site.register(Coupon)
