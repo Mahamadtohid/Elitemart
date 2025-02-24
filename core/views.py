@@ -239,6 +239,7 @@ def cart_view(request):
     cart_total_amount = 0
     if 'cart_data_obj' in request.session:
         for product_id , item in request.session['cart_data_obj'].items():
+            price = float(item['price'])
             cart_total_amount += float(item['price']) * int(item['quantity'])
         return render(request , 'core/cart.html' , {"cart_data":request.session['cart_data_obj'] , "totalcartitems": len(request.session['cart_data_obj']) , 'cart_total_amount':cart_total_amount})
     else:
